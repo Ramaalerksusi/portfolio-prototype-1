@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portfolio Opportunity — Expanded Card</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --ink: #1c1c1e;
+      --ink-2: #4b5563;
+      --ink-3: #8a8f98;
+      --line: #e6e7eb;
+      --line-soft: #f0f1f3;
+      --accent: #ff6a4a;       /* base86 coral */
+      --accent-soft: #fff1ec;
+      --teal: #21c0a8;
+      --teal-ink: #0f8f7d;
+      --chip: #f3f4f6;
+
+      /* chart palette (muted, matches base86) */
+      --c1: #f4a187;
+      --c2: #f6c178;
+      --c3: #a3d9c7;
+      --c4: #9ec2e8;
+      --c5: #c5b1e4;
+      --c6: #f3a8b8;
+      --c7: #b8d99a;
+      --c8: #f0c4a0;
+      --c9: #a6c8d6;
+      --c10: #d7b8df;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Arial, sans-serif; }
+
+    /* layout shell */
+    .shell { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
+
+    /* sidebar (decorative — collapsed-ish) */
+    .sidebar {
+      background: #0f1115; color: #e7e8eb; padding: 20px 14px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .brand { font-weight: 700; font-size: 18px; letter-spacing: .2px; }
+    .brand span { color: var(--accent); }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+      color: #c8cad0; font-size: 13px; cursor: pointer; }
+    .nav-item.active { background: #1c1f25; color: #fff; }
+    .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #585c66; }
+    .nav-item.active .dot { background: var(--accent); }
+
+    /* main area */
+    .main { overflow: auto; padding: 24px 28px; }
+    .crumbs { color: var(--ink-3); font-size: 13px; margin-bottom: 10px; }
+    .crumbs a { color: var(--ink-3); text-decoration: none; }
+    .crumbs .sep { margin: 0 6px; }
+
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      box-shadow: 0 1px 0 rgba(16,24,40,.02), 0 8px 24px rgba(16,24,40,.04);
+      overflow: hidden;
+    }
+
+    .card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px; border-bottom: 1px solid var(--line);
+    }
+    .title { display: flex; align-items: center; gap: 10px; }
+    .title-icon {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft);
+      display: inline-flex; align-items: center; justify-content: center; color: var(--accent);
+    }
+    .title h2 { font-size: 16px; margin: 0; font-weight: 600; }
+    .sub { color: var(--ink-3); font-size: 12px; margin-left: 8px; }
+    .head-actions { display: flex; gap: 8px; align-items: center; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px;
+      border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; font-size: 13px;
+    }
+    .btn:hover { background: #fafafb; }
+    .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+    .btn.primary:hover { background: var(--teal-ink); border-color: var(--teal-ink); }
+    .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); padding: 6px 8px; }
+    .icon-btn { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    .icon-btn:hover { background: #fafafb; }
+
+    /* body: chart + filter panel */
+    .card-body { display: grid; grid-template-columns: 1fr 320px; min-height: 520px; }
+    .chart-col { padding: 22px 24px; border-right: 1px solid var(--line); }
+
+    .kpi-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }
+    .kpi { font-size: 34px; font-weight: 700; letter-spacing: -.5px; }
+    .kpi-label { color: var(--ink-3); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+    .delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px;
+      border-radius: 999px; background: #e8f7f0; color: #0f8a4a; }
+    .delta.neg { background: #fdebe9; color: #c0392b; }
+
+    .chart-wrap { position: relative; height: 340px; margin-top: 8px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-top: 14px; }
+    .legend .item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+    .legend .swatch { width: 9px; height: 9px; border-radius: 50%; }
+    .legend .val { color: var(--ink); font-weight: 600; margin-left: 4px; }
+
+    /* filter panel */
+    .filter {
+      padding: 18px 18px 80px; background: #fff; position: relative; overflow: auto;
+    }
+    .filter h3 { font-size: 15px; font-weight: 600; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
+    .filter h3 .x { color: var(--ink-3); cursor: pointer; }
+    .group { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+    .group:last-of-type { border-bottom: none; }
+    .group .lbl { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .4px; }
+    .group .name { font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .group .chev { color: var(--ink-3); transition: transform .15s ease; }
+    .group.collapsed .body { display: none; }
+    .group.collapsed .chev { transform: rotate(-90deg); }
+    .group .body { padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    .input, select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; font-size: 13px; color: var(--ink); outline: none;
+    }
+    .input:focus, select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(33,192,168,.15); }
+
+    .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+    .check input { accent-color: var(--teal); }
+
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+    .switch { position: relative; width: 34px; height: 20px; background: #d3d6dc; border-radius: 999px; cursor: pointer; transition: background .15s; }
+    .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+    .switch.on { background: var(--teal); }
+    .switch.on::after { left: 16px; }
+
+    .seg { display: inline-flex; background: var(--chip); border-radius: 8px; padding: 2px; gap: 2px; }
+    .seg button { border: none; background: transparent; padding: 6px 10px; font-size: 12px; color: var(--ink-2); border-radius: 6px; cursor: pointer; }
+    .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+
+    .filter-foot {
+      position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 18px; background: #fff;
+      border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end;
+    }
+
+    /* table */
+    .table-wrap { padding: 18px 24px 24px; }
+    .table-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .table-title { font-size: 13px; color: var(--ink-2); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .search { padding: 7px 10px 7px 30px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.3-4.3'/></svg>") 9px center no-repeat;
+      outline: none; min-width: 240px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: 12px; text-transform: uppercase; letter-spacing: .4px;
+      padding: 10px 12px; border-bottom: 1px solid var(--line); background: #fafbfc; }
+    tbody td { padding: 12px; border-bottom: 1px solid var(--line-soft); }
+    tbody tr:hover { background: #fafbfc; }
+    .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+    .pill.high { background: #e8f7f0; color: #0f8a4a; }
+    .pill.med { background: #fff3da; color: #b97505; }
+    .pill.low { background: #fdebe9; color: #c0392b; }
+    .num { font-variant-numeric: tabular-nums; }
+    .neg { color: #c0392b; }
+    .pos { color: #0f8a4a; }
+
+    .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; color: var(--ink-3); font-size: 12px; }
+    .pager .pages { display: flex; gap: 4px; }
+    .pager .pages button { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    .pager .pages button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+    /* download menu */
+    .menu { position: relative; }
+    .menu-pop {
+      position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid var(--line);
+      border-radius: 10px; box-shadow: 0 8px 28px rgba(16,24,40,.12); min-width: 180px; padding: 6px; display: none; z-index: 5;
+    }
+    .menu.open .menu-pop { display: block; }
+    .menu-pop button { width: 100%; text-align: left; padding: 8px 10px; background: transparent; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--ink); }
+    .menu-pop button:hover { background: #f4f5f7; }
+
+    /* svg sizing */
+    svg.icon { width: 16px; height: 16px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">base<span>|86|</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div class="nav-item"><span class="dot"></span> Products</div>
+        <div class="nav-item"><span class="dot"></span> Customers</div>
+        <div class="nav-item"><span class="dot"></span> Quotes</div>
+        <div class="nav-item"><span class="dot"></span> Orders</div>
+        <div class="nav-item active"><span class="dot"></span> Reports</div>
+        <div class="nav-item"><span class="dot"></span> Settings</div>
+        <div class="nav-item"><span class="dot"></span> Help</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="crumbs">
+        <a href="#">Reports</a><span class="sep">›</span>
+        <a href="#">Private Label Opportunity</a><span class="sep">›</span>
+        <span>Portfolio Opportunity</span>
+      </div>
+
+      <section class="card">
+        <header class="card-head">
+          <div class="title">
+            <span class="title-icon">
+              <!-- target icon -->
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+            </span>
+            <h2>Portfolio Opportunity</h2>
+            <span class="sub">Where the private-label portfolio can grow</span>
+          </div>
+          <div class="head-actions">
+            <div class="menu" id="downloadMenu">
+              <button class="btn" onclick="document.getElementById('downloadMenu').classList.toggle('open')">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+              </button>
+              <div class="menu-pop">
+                <button>Export as CSV</button>
+                <button>Export as PDF</button>
+              </div>
+            </div>
+            <button class="icon-btn" title="Collapse">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10 21 3"/><path d="M3 21l7-7"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="card-body">
+          <!-- chart side -->
+          <div class="chart-col">
+            <div class="kpi-row">
+              <div>
+                <div class="kpi-label">Total Opportunity Value</div>
+                <div class="kpi" id="kpiValue">$4.82M</div>
+              </div>
+              <span class="delta" id="kpiDelta">▲ 12.4% vs prior period</span>
+            </div>
+            <div class="chart-wrap"><canvas id="donut"></canvas></div>
+            <div class="legend" id="legend"></div>
+          </div>
+
+          <!-- filter side -->
+          <aside class="filter">
+            <h3>Filter <span class="x">✕</span></h3>
+
+            <div class="group">
+              <div class="name">Date Range <span class="chev">▾</span></div>
+              <div class="body">
+                <select class="input">
+                  <option>Last 30 days</option>
+                  <option selected>Last 90 days</option>
+                  <option>Quarter to date</option>
+                  <option>Year to date</option>
+                  <option>Custom…</option>
+                </select>
+                <label class="toggle-row">
+                  <span style="font-size:13px;">Compare to prior period</span>
+                  <span class="switch on" id="cmpSwitch"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="name">Group By <span class="chev">▾</span></div>
+              <div class="body">
+                <div class="seg" id="groupSeg">
+                  <button class="on" data-g="category">Category</button>
+                  <button data-g="subcategory">Subcategory</button>
+                  <button data-g="brand">Brand Family</button>
+                  <button data-g="price">Price Band</button>
+                  <button data-g="coverage">Coverage</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="group collapsed">
+              <div class="name">Category <span class="chev">▾</span></div>
+              <div class="body">
+                <label class="check"><input type="checkbox" checked /> Needles</label>
+                <label class="check"><input type="checkbox" checked /> Preventives</label>
+                <label class="check"><input type="checkbox" checked /> Anesthetics</label>
+                <label class="check"><input type="checkbox" /> Restoratives</label>
+                <label class="check"><input type="checkbox" /> Impression Materials</label>
+              </div>
+            </div>
+
+            <div class="group collapsed">
+              <div class="name">Brand Family <span class="chev">▾</span></div>
+              <div class="body">
+                <label class="check"><input type="checkbox" /> Patterson PL Core</label>
+                <label class="check"><input type="checkbox" /> Patterson PL Premium</label>
+                <label class="check"><input type="checkbox" /> Patterson PL Value</label>
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="name">Price Band <span class="chev">▾</span></div>
+              <div class="body">
+                <label class="check"><input type="checkbox" checked /> Low</label>
+                <label class="check"><input type="checkbox" checked /> Mid</label>
+                <label class="check"><input type="checkbox" checked /> High</label>
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="name">Coverage Status <span class="chev">▾</span></div>
+              <div class="body">
+                <label class="check"><input type="checkbox" checked /> Covered</label>
+                <label class="check"><input type="checkbox" checked /> Partial</label>
+                <label class="check"><input type="checkbox" checked /> Gap</label>
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="name">Confidence <span class="chev">▾</span></div>
+              <div class="body">
+                <label class="check"><input type="checkbox" checked /> High</label>
+                <label class="check"><input type="checkbox" checked /> Medium</label>
+                <label class="check"><input type="checkbox" /> Low</label>
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="body">
+                <label class="toggle-row"><span style="font-size:13px;">High-volume only</span><span class="switch" data-toggle></span></label>
+                <label class="toggle-row"><span style="font-size:13px;">High-confidence only</span><span class="switch on" data-toggle></span></label>
+              </div>
+            </div>
+
+            <div class="filter-foot">
+              <button class="btn ghost">Reset Defaults</button>
+              <button class="btn primary">Apply</button>
+            </div>
+          </aside>
+        </div>
+
+        <!-- table -->
+        <div class="table-wrap">
+          <div class="table-head">
+            <div class="table-title">Breakdown — <span id="grpLabel">Category</span></div>
+            <input class="search" placeholder="Search rows…" />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th id="dimCol">Category</th>
+                <th class="num">Market SKUs</th>
+                <th class="num">PL Matches</th>
+                <th>Coverage</th>
+                <th class="num">Opportunity Value</th>
+                <th class="num">vs Prior</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="pager">
+            <div>Showing 1–8 of 28</div>
+            <div class="pages">
+              <button>‹</button>
+              <button class="on">1</button>
+              <button>2</button>
+              <button>3</button>
+              <button>4</button>
+              <button>›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ---- mock data per grouping ----
+    const palette = ['--c1','--c2','--c3','--c4','--c5','--c6','--c7','--c8','--c9','--c10']
+      .map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+
+    const data = {
+      category: {
+        label: 'Category',
+        rows: [
+          ['Preventives',       1250, 90,  'Low',     '$1.28M', '+18.2%', 'High'],
+          ['Needles',            800, 120, 'High',    '$0.78M', '+6.4%',  'High'],
+          ['Anesthetics',        540, 80,  'Mid',     '$0.65M', '+9.1%',  'High'],
+          ['Restoratives',       980, 60,  'Low',     '$0.61M', '-2.3%',  'Medium'],
+          ['Impression Mat.',    420, 50,  'Mid',     '$0.46M', '+11.0%', 'Medium'],
+          ['Disposables',       2100, 310, 'High',    '$0.42M', '+4.0%',  'High'],
+          ['Bonding Agents',     360, 30,  'Low',     '$0.38M', '+22.1%', 'Medium'],
+          ['Endodontics',        290, 22,  'Low',     '$0.24M', '-1.6%',  'Low'],
+        ],
+      },
+      subcategory: {
+        label: 'Subcategory',
+        rows: [
+          ['Fluoride Varnish',    240, 12,  'Low',  '$0.45M', '+25.1%', 'Medium'],
+          ['Topical Anesthetics', 180, 28,  'Mid',  '$0.42M', '+14.0%', 'High'],
+          ['Hypodermic Needles',  410, 64,  'High', '$0.40M', '+5.7%',  'High'],
+          ['Injectables',         360, 52,  'Mid',  '$0.39M', '+6.2%',  'High'],
+          ['Sealants',            220, 18,  'Low',  '$0.38M', '+11.4%', 'Medium'],
+          ['Composites',          520, 41,  'Low',  '$0.34M', '-0.8%',  'Medium'],
+          ['Bonding Resin',       180, 14,  'Low',  '$0.22M', '+19.0%', 'Medium'],
+          ['Rubber Dams',         140, 20,  'Mid',  '$0.18M', '+3.4%',  'Low'],
+          ['Other (24 subs)',    4500, 380, 'Mid',  '$2.04M', '+8.0%',  'Medium'],
+        ],
+      },
+      brand: {
+        label: 'Brand Family',
+        rows: [
+          ['Patterson PL Core',    3200, 820, 'High', '$2.10M', '+9.4%',  'High'],
+          ['Patterson PL Premium', 1100, 210, 'Mid',  '$1.22M', '+14.7%', 'High'],
+          ['Patterson PL Value',   2400, 380, 'Mid',  '$0.94M', '+6.1%',  'Medium'],
+          ['Patterson PL Eco',      640, 110, 'Low',  '$0.32M', '+22.0%', 'Medium'],
+          ['Patterson PL Pro',      820, 140, 'Mid',  '$0.24M', '-1.2%',  'Medium'],
+        ],
+      },
+      price: {
+        label: 'Price Band',
+        rows: [
+          ['Low',  3850, 410, 'Mid',  '$1.84M', '+11.2%', 'High'],
+          ['Mid',  4100, 720, 'High', '$1.66M', '+8.9%',  'High'],
+          ['High', 2100, 240, 'Low',  '$1.32M', '+18.4%', 'Medium'],
+        ],
+      },
+      coverage: {
+        label: 'Coverage Status',
+        rows: [
+          ['Covered', 5200, 1100, 'High',  '$1.92M', '+6.1%',  'High'],
+          ['Partial', 3100,  420, 'Mid',   '$1.58M', '+12.4%', 'Medium'],
+          ['Gap',     1750,    0, 'Low',   '$1.32M', '+24.0%', 'Low'],
+        ],
+      },
+    };
+
+    let currentGroup = 'category';
+
+    // ---- chart ----
+    const ctx = document.getElementById('donut').getContext('2d');
+    let chart = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels: [], datasets: [{ data: [], backgroundColor: palette, borderWidth: 2, borderColor: '#fff' }] },
+      options: {
+        cutout: '68%',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (c) => ` ${c.label}: ${c.formattedValue} (${((c.parsed/c.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)`
+            }
+          }
+        }
+      },
+      plugins: [{
+        id: 'centerText',
+        beforeDraw(chart) {
+          const { width, height, ctx } = chart;
+          ctx.save();
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif';
+          ctx.fillStyle = '#8a8f98';
+          ctx.textAlign = 'center';
+          ctx.fillText('OPPORTUNITY VALUE', width/2, height/2 - 8);
+          ctx.font = '700 22px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif';
+          ctx.fillStyle = '#1c1c1e';
+          ctx.fillText('$4.82M', width/2, height/2 + 16);
+          ctx.restore();
+        }
+      }]
+    });
+
+    function parseM(v) { return parseFloat(String(v).replace(/[^0-9.\-]/g, '')); }
+
+    function render(group) {
+      currentGroup = group;
+      const set = data[group];
+      const labels = set.rows.map(r => r[0]);
+      const values = set.rows.map(r => parseM(r[4]));
+
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = values;
+      chart.update();
+
+      // legend
+      const total = values.reduce((a,b) => a+b, 0);
+      const legend = document.getElementById('legend');
+      legend.innerHTML = labels.map((l, i) => `
+        <span class="item">
+          <span class="swatch" style="background:${palette[i % palette.length]}"></span>
+          ${l}
+          <span class="val">${((values[i]/total)*100).toFixed(1)}%</span>
+        </span>
+      `).join('');
+
+      // KPI
+      const totalFmt = '$' + total.toFixed(2) + 'M';
+      document.getElementById('kpiValue').textContent = totalFmt;
+
+      // table label + first column
+      document.getElementById('grpLabel').textContent = set.label;
+      document.getElementById('dimCol').textContent = set.label;
+
+      // rows
+      const rows = document.getElementById('rows');
+      rows.innerHTML = set.rows.map(r => {
+        const conf = r[6].toLowerCase();
+        const pillCls = conf === 'high' ? 'high' : (conf === 'medium' ? 'med' : 'low');
+        const deltaCls = r[5].trim().startsWith('-') ? 'neg' : 'pos';
+        return `<tr>
+          <td><strong>${r[0]}</strong></td>
+          <td class="num">${r[1].toLocaleString()}</td>
+          <td class="num">${r[2].toLocaleString()}</td>
+          <td>${r[3]}</td>
+          <td class="num">${r[4]}</td>
+          <td class="num ${deltaCls}">${r[5]}</td>
+          <td><span class="pill ${pillCls}">${r[6]}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ---- interactivity ----
+    document.querySelectorAll('#groupSeg button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#groupSeg button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        render(b.dataset.g);
+      });
+    });
+
+    document.querySelectorAll('.group .name').forEach(n => {
+      n.addEventListener('click', () => n.parentElement.classList.toggle('collapsed'));
+    });
+
+    document.querySelectorAll('[data-toggle], #cmpSwitch').forEach(s => {
+      s.addEventListener('click', () => s.classList.toggle('on'));
+    });
+
+    document.addEventListener('click', (e) => {
+      const m = document.getElementById('downloadMenu');
+      if (!m.contains(e.target)) m.classList.remove('open');
+    });
+
+    render('category');
+  </script>
+</body>
+</html>
